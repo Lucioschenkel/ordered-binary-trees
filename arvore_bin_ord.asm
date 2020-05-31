@@ -99,29 +99,29 @@ cria_arvore:
 	addu	$t3,$zero,$zero			# Initializes the counter of created elements to zero
 	li	$a0, 0				# i.d of the pseudo-random number generator
 	li	$a1, 0x44ff11aa			# sets the seed of the pseudo-random number generator
-	li	$v0, 40				# Loads 40 in $vo (system call identifier for setting 
-						# the seed of pseudo-random number generator
+	li	$v0, 40				# Loads 40 in $v0 (system call identifier for setting the seed of pseudo-random number generator)
 	syscall 				# Executes the system call		
+	add	$t0,$zero,$fp			# Saves the value of the heap pointer in $t0
 	
 cria_vertices:
 	beq	$t3,$a2,arvore_pronta		# If the counter $t3 is equals to number of vertices, stop creating nodes
 	li	$a0, 0				# Loads the identifier of the pseudo-random number generator in $a0
 	li	$a1, 100			# Loads the upper bound of random values in $a1
-	li	$v0, 42 			# Loads the immediate 42 in register $v0 (system call identifier for
-						# pseudo-random number generator in a given range
+	li	$v0, 42 			# Loads the immediate 42 in register $v0 (system call identifier for pseudo-random number generator in a given range
 	syscall					# Executes the system call
+	
 	addi	$sp,$sp,-12			# Allocates 12 bytes on the stack
 	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
-	sw	$fp,4($sp)			# Stores the pointer to the tree in the second position of the stack
+	sw	$t0,4($sp)			# Stores the pointer to the tree in the second position of the stack
 	sw	$a0,8($sp)			# Stores the value of the new node in the third position of the stack
 	jal	insere_vertice			# Jumps to subroutine responsible for inserting a new node
 	lw	$ra,0($sp)			# Recovers the return address from the stack
-	addi	$sp,$sp,12			# 'Destroys' the allocated space on the stack
+	addi	$sp,$sp,12			# 'Destroys' the allocated space on the stack	
 	addiu	$t3,$t3,1			# Increments the counter of the loop
 	j	cria_vertices			# Jumps to the beggining of the loop						
 	
 arvore_pronta:
-	sw	$fp,8($sp)			# Stores the pointer to the tree in the third position of the stack	
+	sw	$t0,8($sp)			# Stores the pointer to the tree in the third position of the stack
 	jr	$ra
 
 # This subroutine takes in a pointer to a tree root and and inserts a new node on the appropriate 
@@ -134,66 +134,52 @@ arvore_pronta:
 insere_vertice:
 	lw	$a0,4($sp)			# Loads the pointer to the tree from the stack
 	lw	$a1,8($sp)			# Loads the value of the new node
-	lw	$t5,4($a0)			# Loads the content of the middle 32 bits of the current node
-	seq	$t6,$t5,$zero			# Set $t6 if the content of the current node is 'NULL'
-	bne	$t6,$zero,escreve_noh		# If $t6 is set, jump to write the element in the node
-	slt	$t6,$a1,$t5			# Set $t6 if the new node value is smaller than the value of the current node
-	bne	$t6,$zero,insere_esq		# If $t6 is set, recurr through the left
-	sgt	$t6,$a1,$t5			# Set $t6 if the value of the new node is greater than the value of the current node
-	bne	$t6,$zero,insere_dir		# If $t6 is set, recurr through the right
-	j	finish_recursion		# Else, the value is equals and therefore ignored
-
-escreve_noh:	
-	sw	$a1,4($a0)			# Writes the value in the current node
-	j	finish_recursion		# Finish recurring and returns				
-
-insere_esq:
-	lw	$t5, 0($a0)			# Loads the left pointer of the current node
-	seq	$t6,$t5,$zero			# If the content of the current left pointer is zero, set $t6
-	beq	$t6,$zero,recurr		# If $t6 IS NOT set, will recurr
+	lw	$t5,4($a0)			# Loads the content of the middle 32 bits of the root node
+	beq	$a1,$t5,finish_recursion	# If new node equals the root node, exit
+	slt	$t6,$a1,$t5			# Set $t6 if the value of the new node is smaller than the root node
+	bne	$t6,$zero,eh_menor		# If $t6 is set, the number is smaller than the root			
+	sgt	$t6,$a1,$t5			# Set $t6 if the new node is greater than the root
+	bne	$t6,$zero,eh_maior		# If $t6 is set, the number is greater than the root
 	
-	addi	$sp,$sp,-16			# Allocates 16 bytes on the stack
-	addi	$t6,$a0,12			# Make $t6 point to a node after the current one
+eh_menor:
+	lw	$t5,0($a0)			# Loads the content of the left pointer in $t5
+	beq	$t5,$zero,sem_filho_esq		# If doesnt have a left child yet, create it
+	addi	$sp,$sp,-12			# Allocates 12 bytes on the stack
 	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
-	sw	$t6,4($sp)			# Stores the pointer to the new node in the second position of the stack
-	sw	$a1,8($sp)			# Stores the value of the node to be created in the third position of the stack
-	sw	$a0,12($sp)			# Stores the current node address in the fourth position of the stack
+	sw	$t5,4($sp)			# Stores the address of the next node to be compared in the second position of the stack
+	sw	$a1,8($sp)			# Stores the value of the node yet to be created in the third position of the stack
 	jal	insere_vertice			# Call insere_vertice recursively
-	lw	$ra,0($sp)			# Recovers the return address from the stack
-	lw	$t6,4($sp)			# Recovers the address of the new node from the stack
-	lw	$a0,12($sp)			# Recovers the address to this node from the stack
-	sw	$t6,0($a0)			# Writes the address of the new node in the left pointer of the current one
-	addi	$sp,$sp,16			# Destroys the allocated space in the stack
-	
-	j	finish_recursion		# Finish recurring	 
+	lw	$ra,0($sp)
+	addi	$sp,$sp,12
+	jr	$ra
 
-insere_dir:
-	lw	$t5, 8($a0)			# Loads the right pointer of the current node
-	seq	$t6,$t5,$zero			# If the content of the current left pointer is zero, set $t6
-	beq	$t6,$zero,recurr		# If $t6 is set, will recurr
-	
-	addi	$sp,$sp,-16			# Allocates 16 bytes on the stack
-	addi	$t6,$a0,12			# Make $t6 point to a node after the current one
+sem_filho_esq:
+	sw	$fp,0($a0)			# Writes the address of the new node in the current left pointer
+	sw	$zero,0($fp)			# Make the newly created node's left pointer null
+	sw	$zero,8($fp)			# Make the newly create node's right pointer null
+	sw	$a1,4($fp)			# Write the value of the new node
+	addi	$fp,$fp,12			# Makes the heap pointer point to the next available position in memory
+	jr	$ra		
+
+sem_filho_dir:
+	sw	$fp,8($a0)			# Writes the address of the new node in the current right pointer
+	sw	$zero,0($fp)			# Make the newly created node's left pointer null
+	sw	$zero,8($fp)			# Make the newly create node's right pointer null
+	sw	$a1,4($fp)			# Write the value of the new node
+	addi	$fp,$fp,12			# Makes the heap pointer point to the next available position in memory
+	jr	$ra	
+		
+eh_maior:
+	lw	$t5,8($a0)			# Loads the content of the right pointer in $t5
+	beq	$t5,$zero,sem_filho_dir		# If doesnt have a right child yet, create it
+	addi	$sp,$sp,-12			# Allocates 12 bytes on the stack
 	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
-	sw	$t6,4($sp)			# Stores the pointer to the new node in the second position of the stack
-	sw	$a1,8($sp)			# Stores the value of the node to be created in the third position of the stack
-	sw	$a0,12($sp)			# Stores the current node address in the fourth position of the stack
+	sw	$t5,4($sp)			# Stores the address of the next node to be compared in the second position of the stack
+	sw	$a1,8($sp)			# Stores the value of the node yet to be created in the third position of the stack
 	jal	insere_vertice			# Call insere_vertice recursively
 	lw	$ra,0($sp)			# Recovers the return address from the stack
-	lw	$t6,4($sp)			# Recovers the address of the new node from the stack
-	lw	$a0,12($sp)			# Recovers the address to this node from the stack
-	sw	$t6,8($a0)			# Writes the address of the new node in the left pointer of the current one
-	addi	$sp,$sp,16			# Destroys the allocated space in the stack										
-					
-recurr:
-	addi	$sp,$sp,-12			# Allocates 12 bytes in the stack
-	sw	$ra,0($sp)			# Saves the current return address in the first position of the stack
-	sw	$t5,4($sp)			# Saves the pointer to the next node in the second position of the stack
-	sw	$a1,8($sp)			# Saves the value of the new node in the third position of the stack
-	jal	insere_vertice			# Call insere_vertice recursively
-	lw	$ra,0($sp)			# Recovers the return address from the stack
-	addi	$sp,$sp,12			# 'Destroys' the allocated space on the stack
-							
+	addi	$sp,$sp,12	
+																																																																																																																																																																																																																																	
 finish_recursion:
 	jr	$ra				# Returns from recursion
 	 
