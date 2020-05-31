@@ -13,7 +13,10 @@ TAMANHO_INVALIDO:
 	.asciiz "Tamanho inválido. Por favor, escolha um número inteiro maior ou igual a zero: "
 
 VIRGULA:
-	.asciiz ","					 							 								 							 						
+	.asciiz ","
+
+PERGUNTA_VERTICE:
+	.asciiz "\nDigite o valor do vértice a ser inserido na árvore: "						 							 								 							 												 							 								 							 						
 	
 	.text
 	.globl main
@@ -73,6 +76,8 @@ loop:
 # --------------------------------------------- Handle user option ----------------------------------------------	
 	addi	$t2,$zero,3			# Sets the content of $t2 equals to 3
 	beq	$t1,$t2,fim			# If option is equals to three, exits program
+	addi	$t2,$zero,2			# Sets the content of $t2 equals to 2
+	beq	$t1,$t2,novo_vertice		# If the option is equals to two, ask user for new vertice
 	addi	$t2,$zero,1			# Sets the content of $t2 equals to 1
 	bne	$t2,$t1,loop			# If option is not equals to one, continue
 						# Else, print the three
@@ -123,6 +128,31 @@ cria_vertices:
 arvore_pronta:
 	sw	$t0,8($sp)			# Stores the pointer to the tree in the third position of the stack
 	jr	$ra
+
+novo_vertice:
+	addi	$sp,$sp,-8			# Allocates 8 bytes on the stack
+	la	$a0,PERGUNTA_VERTICE		# Loads the address of the constant PERGUNTA_VERTICE in $a0 for printing
+	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
+	sw	$a0,4($sp)			# Stores the address of the text to be printed in the second position of the stack
+	jal	imprime_texto			# Jumps to subroutine responsible for string printing to the screen
+	lw	$ra,0($sp)			# Recovers the return address from the stack
+	addi	$sp,$sp,8			# 'Destroys' the allocated space on the stack
+
+	addi	$sp,$sp,-8			# Allocates 8 bytes in the stack
+	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
+	jal	le_inteiro			# Jumps to subroutine responsible for integer input reading
+	lw	$ra,0($sp)			# Recovers the return address from the stack
+	lw	$v0,4($sp)			# Recovers the return value of the subroutine from the stack
+	addi	$sp,$sp,8			# 'Destroys' the allocated space in the stack
+	
+	addi	$sp,$sp,-12			# Allocates 12 bytes on the stack
+	sw	$ra,0($sp)			# Stores the current return address in the first position of the stack
+	sw	$t0,4($sp)			# Stores the pointer to the tree in the second position of the stack
+	sw	$v0,8($sp)			# Stores the value of the node to be inserted in the third position of the stack
+	jal	insere_vertice			# Jumps to the subroutine that inserts a new vertice on the tree
+	lw	$ra,0($sp)			# Recovers the return address from the stack
+	addi	$sp,$sp,12			# 'Destroys' the allocated space on the stack
+	j	loop				# Returns to the main loop
 
 # This subroutine takes in a pointer to a tree root and and inserts a new node on the appropriate 
 # position to keep the tree organized.		
